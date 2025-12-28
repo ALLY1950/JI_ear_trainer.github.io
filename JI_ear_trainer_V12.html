@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Just Intonation Ear Trainer Pro</title>
+  <style>
+    /* UNIFIED LARGE-SCALE UI */
+    body { 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      padding: 1.5rem; max-width: 900px; margin: 0 auto; 
+      background-color: #f0f2f5; color: #1a1a1b; font-size: 1.15rem;
+    }
+
+    h1 { text-align: center; color: #1c2b33; margin-bottom: 2rem; letter-spacing: -0.5px; }
+
+    fieldset { 
+      border: none; background: white; border-radius: 16px; 
+      padding: 1.8rem; margin-bottom: 1.5rem; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    legend { font-weight: 700; padding: 0 10px; color: #5f6368; font-size: 0.95rem; text-transform: uppercase; }
+
+    /* FORM ELEMENTS */
+    select, input[type="number"], input[type="text"] {
+      font-size: 1.1rem; padding: 12px; border-radius: 10px;
+      border: 2px solid #e0e0e0; width: 100%; box-sizing: border-box; outline: none;
+    }
+    select:focus { border-color: #228be6; }
+
+    .inline { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+    .inline > div { flex: 1; min-width: 200px; }
+
+    /* BUTTON-STYLE SELECTIONS */
+    .button-group { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
+    .button-group label {
+      flex: 1; background: #f8f9fa; padding: 14px 8px; text-align: center;
+      border-radius: 10px; cursor: pointer; transition: 0.2s;
+      border: 2px solid #eee; font-weight: 600; font-size: 0.95rem;
+    }
+    .button-group label:has(input:checked) {
+      background: #e7f5ff; color: #1971c2; border-color: #339af0;
+    }
+    .button-group input { display: none; }
+
+    /* INTERVAL SELECTION GRID */
+    #intervalList {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 12px; margin-top: 15px;
+    }
+    #intervalList label {
+      background: #fff; padding: 15px; border-radius: 12px;
+      text-align: center; cursor: pointer; border: 2px solid #eee;
+      transition: all 0.2s; font-weight: bold;
+    }
+    #intervalList label:has(input:checked) {
+      background: #339af0; border-color: #1971c2; color: white;
+      transform: translateY(-2px); box-shadow: 0 4px 8px rgba(51,154,240,0.3);
+    }
+
+    /* ACTION BUTTONS */
+    button { 
+      display: block; width: 100%; padding: 20px; font-size: 1.3rem;
+      font-weight: 700; background-color: #2c3e50; color: white;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: all 0.2s; margin-top: 1rem;
+    }
+    button:active { transform: scale(0.98); }
+
+    /* NEXT QUESTION BUTTON STATES */
+    #nextBtn { background-color: #adb5bd; color: #f8f9fa; cursor: not-allowed; }
+    #nextBtn.ready { 
+      background-color: #40c057 !important; 
+      color: white !important; 
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(64,192,87,0.4);
+    }
+
+    #feedback { font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0; text-align: center; min-height: 1.6em; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<h1>Just Intonation Ear Trainer</h1>
+
+<fieldset>
+  <legend>Audio Setup</legend>
+  <div class="inline">
+    <div>
+      <label>Instrument</label>
+      <select id="instrument" onchange="updateInstrument(this.value)">
+        <option value="sine">Sine Wave (Synthesized)</option>
+        <option value="piano">Grand Piano</option>
+        <option value="clarinet">Clarinet Solo</option>
+        <option value="cello">Cello Section</option>
+      </select>
+    </div>
+    <div>
+      <label>File Format</label>
+      <div class="button-group">
+        <label><input type="radio" name="format" value=".m4a" checked> M4A (Recommended)</label>
+        <label><input type="radio" name="format" value=".wav"> WAV (Original)</label>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Training Mode</legend>
+  <div class="inline">
+    <div>
+      <label>Playback Style</label>
+      <select id="playback" onchange="updatePlaybackOptions()">
+        <option value="harmonic">Harmonic (Interval)</option>
+        <option value="melodic">Melodic (One-by-one)</option>
+        <option value="both">Both (Melodic then Harmonic)</option>
+      </select>
+    </div>
+    <div id="harmonicOpts">
+      <label>Harmonic Duration (sec)</label>
+      <input type="number" id="harmonicDur" value="3.0" step="0.5" min="0.5">
+    </div>
+  </div>
+
+  <div id="melodicOpts" class="hidden" style="margin-top:20px;">
+    <label>Melodic Direction</label>
+    <div class="button-group">
+      <label><input type="radio" name="melDir" value="up" checked> Ascending</label>
+      <label><input type="radio" name="melDir" value="down"> Descending</label>
+      <label><input type="radio" name="melDir" value="both"> Both Directions</label>
+    </div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Root Reference</legend>
+  <div class="button-group">
+    <label><input type="radio" name="root" value="fixed" checked onchange="updateRootUI()"> Fixed (C4/264Hz)</label>
+    <label><input type="radio" name="root" value="variable" onchange="updateRootUI()"> Randomize Every Turn</label>
+  </div>
+  <div id="fixedRootBox" style="margin-top:15px; display:flex; align-items:center; gap:10px;">
+    <input type="checkbox" id="enableFixedFreq" style="width:20px; height:20px;">
+    <span>Use Custom Base Frequency (Hz):</span>
+    <input type="number" id="fixedFreq" value="264" style="width:120px;" disabled>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Select Intervals to Test</legend>
+  <div id="intervalList"></div>
+  <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
+    <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+        <input type="checkbox" id="otherCheck" onchange="toggleOther()" style="width:20px; height:20px;"> 
+        <b>Add Custom Ratios</b>
+    </label>
+    <input id="otherIntervals" type="text" placeholder="e.g. 27/20, 40/27" class="hidden" style="margin-top:10px;">
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Quiz Configuration</legend>
+  <div class="inline">
+    <div>Questions: <input id="numQuestions" type="number" value="10" min="1"></div>
+    <div>Difficulty: 
+        <select id="difficultySelect">
+            <option value="easy">Easy (Multiple Tries)</option>
+            <option value="medium">Medium (Single Try)</option>
+            <option value="hard">Hard (No Feedback)</option>
+        </select>
+    </div>
+  </div>
+</fieldset>
+
+<button onclick="startTest()" style="background: #1c2b33; margin-bottom: 3rem;">Start Training Session</button>
+
+<div id="testArea"></div>
+
+<script>
+// ================= CORE DATA =================
+const baseIntervals=['25/24','21/20','19/18','17/16','16/15','15/14','14/13','13/12','12/11','11/10','10/9','19/17','9/8','17/15','8/7','7/6','13/11','19/16','6/5','39/32','11/9','16/13','5/4','81/64','9/7','13/10','21/16','4/3','11/8','7/5','45/32'];
+function gcd(a,b){ while(b){ [a,b]=[b,a%b]; } return a; }
+function octaveComplement(r){
+  const [n,d]=r.split('/').map(Number);
+  const num=2*d, den=n, g=gcd(num,den);
+  return `${num/g}/${den/g}`;
+}
+const allIntervals=[...baseIntervals,...baseIntervals.map(octaveComplement)].map(r=>({r, v: eval(r)})).sort((a,b)=>a.v-b.v).map(o=>o.r);
+
+// ================= UI BUILD =================
+const intervalListDiv=document.getElementById('intervalList');
+allIntervals.forEach(r=>{
+  const l=document.createElement('label');
+  l.innerHTML=`<input type="checkbox" value="${r}"> ${r}`;
+  intervalListDiv.appendChild(l);
+});
+
+function toggleOther(){ otherIntervals.classList.toggle('hidden', !otherCheck.checked); }
+function updatePlaybackOptions(){
+  harmonicOpts.classList.toggle('hidden', playback.value==='melodic');
+  melodicOpts.classList.toggle('hidden', playback.value==='harmonic');
+}
+function updateRootUI(){
+  fixedRootBox.classList.toggle('hidden', document.querySelector('input[name="root"]:checked').value!=='fixed');
+}
+enableFixedFreq.onchange=e=>fixedFreq.disabled=!e.target.checked;
+
+// ================= AUDIO ENGINE =================
+const sampleManifest = {
+  clarinet: { 37: "BssClar-037-CSharp2", 38: "BssClar-038-D2", 40: "BssClar-040-E2", 41: "BssClar-041-F2", 42: "BssClar-042-FSharp2", 43: "BssClar-043-G2", 44: "BssClar-044-GSharp2", 45: "BssClar-045-A2", 46: "BssClar-046-ASharp2", 47: "BssClar-047-B2", 48: "BssClar-048-C3", 49: "BssClar-049-CSharp3", 50: "BssClar-050-D3", 51: "BssClar-051-DSharp3", 52: "BssClar-052-E3", 53: "BssClar-053-F3", 54: "BssClar-054-FSharp3", 55: "BssClar-055-G3", 56: "BssClar-056-GSharp3", 57: "BssClar-057-A3", 58: "BssClar-058-ASharp3", 59: "BssClar-059-B3", 60: "BbClar-060-C4", 61: "BbClar-061-CSharp4", 62: "BbClar-062-D4", 63: "BbClar-063-DSharp4", 64: "BbClar-064-E4", 65: "BbClar-065-F4", 66: "BbClar-066-FSharp4", 67: "BbClar-067-G4", 68: "BbClar-068-GSharp4", 69: "BbClar-069-A4", 70: "BbClar-070-ASharp4", 71: "BbClar-071-B4", 72: "BbClar-072-C5", 73: "BbClar-073-CSharp5", 74: "BbClar-074-D5", 75: "BbClar-075-DSharp5", 76: "BbClar-076-E5", 77: "BbClar-077-F5", 78: "BbClar-078-FSharp5", 79: "BbClar-079-G5", 80: "BbClar-080-GSharp5", 81: "BbClar-081-A5", 82: "BbClar-082-ASharp5", 83: "BbClar-083-B5", 84: "BbClar-084-C6", 85: "BbClar-085-CSharp6", 86: "BbClar-086-D6", 87: "BbClar-087-DSharp6", 88: "BbClar-088-E6", 89: "BbClar-089-F6", 90: "BbClar-090-FSharp6", 91: "BbClar-091-G6", 92: "BbClar-092-GSharp6", 93: "BbClar-093-A6", 94: "BbClar-094-ASharp6", 95: "BbClar-095-B6", 96: "BbClar-096-C7" },
+  cello: { 30: "celli-sus-fS2", 33: "celli-sus-a2", 36: "celli-sus-c2", 39: "celli-sus-dS2", 42: "celli-sus-fS3", 45: "celli-sus-a3", 48: "celli-sus-c3", 51: "celli-sus-dS3", 54: "celli-sus-fS4", 57: "celli-sus-a4", 60: "celli-sus-c4", 63: "celli-sus-dS4", 72: "celli-sus-c5" }
+};
+
+let ctx=null, audioBuffers={};
+function getAudioContext(){ if(!ctx) ctx=new (window.AudioContext||window.webkitAudioContext)(); return ctx; }
+function freqToMidi(f){ return Math.round(69 + 12 * Math.log2(f / 440)); }
+function midiToFreq(m){ return 440 * Math.pow(2, (m - 69) / 12); }
+const sleep=ms=>new Promise(r=>setTimeout(r, ms*1000));
+
+async function getBuffer(inst, midi){
+  const ext = document.querySelector('input[name="format"]:checked').value;
+  const key = `${inst}_${midi}_${ext}`;
+  if(audioBuffers[key]) return audioBuffers[key];
+
+  let fileName = (inst==='piano') ? `Sampl (${midi - 20})` : sampleManifest[inst][midi];
+  if(!fileName) return null;
+
+  try {
+    const resp = await fetch(`samples/${inst}/${fileName}${ext}`);
+    const decoded = await getAudioContext().decodeAudioData(await resp.arrayBuffer());
+    audioBuffers[key] = decoded;
+    return decoded;
+  } catch(e) { return null; }
+}
+
+async function playTone(freq, duration){
+  const inst = document.getElementById('instrument').value;
+  const gain = getAudioContext().createGain();
+  gain.gain.setValueAtTime((inst==='sine'?0.2:1.0), ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  gain.connect(ctx.destination);
+
+  if(inst==='sine'){
+    const o=ctx.createOscillator(); o.frequency.value=freq; o.connect(gain);
+    o.start(); o.stop(ctx.currentTime+duration);
+  } else {
+    const targetMidi = freqToMidi(freq);
+    let bestMidi = targetMidi;
+    if(inst!=='piano'){
+      const avail = Object.keys(sampleManifest[inst]).map(Number);
+      bestMidi = avail.reduce((p,c)=>Math.abs(c-targetMidi)<Math.abs(p-targetMidi)?c:p);
+    }
+    const buf = await getBuffer(inst, bestMidi);
+    if(!buf) return;
+    const s=ctx.createBufferSource(); s.buffer=buf;
+    s.playbackRate.value = freq / midiToFreq(bestMidi);
+    s.connect(gain); s.start(); s.stop(ctx.currentTime+duration);
+  }
+}
+
+// ================= TEST LOGIC =================
+let quiz=[], idx=0, score=0, chancesLeft=0, answered=false, currentOptions=[], currentRoot=264;
+
+async function playInterval(ratio){
+  const f1=currentRoot, f2=currentRoot*eval(ratio), dur=+harmonicDur.value, mode=playback.value;
+  const seq = [Math.min(f1,f2), Math.max(f1,f2)];
+  if(mode!=='harmonic'){
+    const dir = document.querySelector('input[name="melDir"]:checked').value;
+    const playSeq = async s => { for(let f of s){ playTone(f, 0.8); await sleep(0.95); } };
+    if(dir==='up') await playSeq(seq);
+    else if(dir==='down') await playSeq([...seq].reverse());
+    else { await playSeq(seq); await sleep(1); await playSeq([...seq].reverse()); }
+    if(mode==='both') await sleep(1);
+  }
+  if(mode!=='melodic'){ playTone(f1, dur); playTone(f2, dur); }
+}
+
+function startTest(){
+  const sel=[...intervalListDiv.querySelectorAll('input:checked')].map(i=>i.value);
+  if(otherCheck.checked) otherIntervals.value.split(',').forEach(r=>r.trim()&&sel.push(r.trim()));
+  if(sel.length<2) return alert('Select 2+ intervals.');
+  currentOptions=sel; score=0; idx=0;
+  quiz=Array.from({length:+numQuestions.value},()=>sel[Math.floor(Math.random()*sel.length)]);
+  nextQuestion();
+}
+
+function nextQuestion(){
+  if(idx>=quiz.length){
+    testArea.innerHTML=`<fieldset style="text-align:center;"><h2>Training Complete</h2><p style="font-size:2rem;">Score: ${score}/${quiz.length}</p><button onclick="location.reload()">Reset Session</button></fieldset>`;
+    return;
+  }
+  answered=false;
+  const diff = difficultySelect.value;
+  chancesLeft = (diff==='easy') ? Math.floor(Math.log2(currentOptions.length+1)) : 1;
+  const rMode = document.querySelector('input[name="root"]:checked').value;
+  currentRoot = (rMode==='fixed') ? (enableFixedFreq.checked?+fixedFreq.value:264) : (110 + Math.random()*800);
+
+  testArea.innerHTML=`
+    <fieldset>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <h3 style="margin:0;">Q${idx+1} of ${quiz.length}</h3>
+        <span id="chanceTag" style="color:#f08c00; font-weight:800; font-size:0.9rem;">${diff==='hard'?'HIDDEN MODE':chancesLeft+' CHANCES LEFT'}</span>
+      </div>
+      <button onclick="playInterval(quiz[idx])" style="background:#343a40;">▶ Play Sound</button>
+      <div id="quizOptions" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:12px; margin:25px 0;">
+        ${currentOptions.map(o=>`<label style="background:#f1f3f5; padding:20px 10px; border-radius:12px; text-align:center; cursor:pointer; border:2px solid #dee2e6; font-weight:700;"><input type="radio" name="ans" value="${o}"><br>${o}</label>`).join('')}
+      </div>
+      <p id="feedback"></p>
+      <div style="display:flex; gap:15px;">
+        <button id="checkBtn" onclick="checkAns()" style="flex:2; background:#228be6;">Check Answer</button>
+        <button id="nextBtn" onclick="idx++; nextQuestion()" style="flex:1;" disabled>Next ➡</button>
+      </div>
+    </fieldset>`;
+}
+
+function checkAns(){
+  if(answered) return;
+  const sel=document.querySelector('input[name="ans"]:checked');
+  if(!sel) return;
+  const correct=quiz[idx], fb=document.getElementById('feedback'), nxt=document.getElementById('nextBtn');
+  
+  if(sel.value===correct){
+    score++; answered=true; fb.innerHTML="✨ Correct!"; fb.style.color="#2b8a3e";
+    nxt.disabled=false; nxt.classList.add('ready');
+  } else {
+    chancesLeft--;
+    if(chancesLeft<=0 || difficultySelect.value==='hard'){
+      answered=true; fb.innerHTML=`❌ Incorrect. The answer was <b>${correct}</b>`; fb.style.color="#c92a2a";
+      nxt.disabled=false; nxt.classList.add('ready');
+    } else {
+      fb.innerHTML=`❌ Not quite... try again!`; fb.style.color="#e67e22";
+      document.getElementById('chanceTag').innerText = chancesLeft + ' CHANCES LEFT';
+    }
+  }
+}
+</script>
+</body>
+</html>
